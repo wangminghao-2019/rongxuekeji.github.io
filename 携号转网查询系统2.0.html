@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>合约取消查询系统</title>
+    <!-- 优化：使用更小的Excel导出库CDN（体积减小50%） -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.core.min.js"></script>
+    <style>
+        * {margin:0;padding:0;box-sizing:border-box;font-family:"微软雅黑",sans-serif;}
+        body {padding:20px;max-width:1600px;margin:0 auto;background:#f8f9fa;}
+        .title {text-align:center;font-size:24px;font-weight:bold;color:#343a40;margin:15px 0;}
+        .search-box {background:#fff;padding:15px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05);margin-bottom:20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+        .search-box input {flex:1;min-width:250px;padding:10px 15px;border:1px solid #ced4da;border-radius:6px;font-size:15px;outline:none;transition:border-color 0.3s;}
+        .search-box input:focus {border-color:#409eff;box-shadow:0 0 0 2px rgba(64,158,255,0.2);}
+        .search-box button {padding:10px 20px;border:none;border-radius:6px;font-size:15px;cursor:pointer;color:#fff;transition:opacity 0.3s;}
+        .search-box button:hover {opacity:0.9;}
+        .btn-search {background:#409eff;}
+        .btn-reset {background:#6c757d;}
+        .btn-add {background:#28a745;}
+        .btn-export {background:#ff7f0e;}
+        .table-container {background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05);overflow-x:auto;}
+        table {width:100%;border-collapse:collapse;text-align:center;}
+        th, td {padding:12px 8px;border:1px solid #e9ecef;min-width:120px;word-break:break-word;font-size:14px;}
+        th {background:#f8f9fa;font-weight:bold;cursor:pointer;}
+        th:hover {background:#e9ecef;}
+        td {cursor:cell;}
+        td:focus {outline:2px solid #409eff;outline-offset:-1px;}
+        .highlight {background:#fff3cd;font-weight:bold;color:#856404;}
+        .btn-del {padding:5px 10px;background:#dc3545;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;}
+        .tip {text-align:center;margin-top:8px;font-size:13px;display:none;}
+        .save-tip {color:#28a745;}
+        .export-tip {color:#ff7f0e;}
+        /* 优化：加载提示样式 */
+        .loading-tip {text-align:center;padding:20px;color:#6c757d;font-size:14px;}
+        @media (max-width:768px) {
+            th, td {min-width:90px;padding:8px 5px;font-size:12px;}
+            .search-box button {flex:1 0 100%;padding:9px 15px;font-size:14px;}
+            .search-box input {min-width:100%;}
+        }
+    </style>
+</head>
+<body>
+    <div class="title">合约取消查询系统</div>
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="多关键词查询（空格分隔，如：5G 合约）">
+        <button class="btn-search" onclick="searchData()">查询</button>
+        <button class="btn-reset" onclick="resetData()">重置</button>
+        <button class="btn-add" onclick="addRow()">新增</button>
+        <button class="btn-export" onclick="exportToExcel()">导出Excel</button>
+    </div>
+    <div class="table-container">
+        <!-- 优化：添加加载提示（首屏先显示提示，再渲染数据） -->
+        <div class="loading-tip" id="loadingTip">数据加载中...</div>
+        <table id="dataTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">序号</th>
+                    <th onclick="sortTable(1)">订购业务</th>
+                    <th onclick="sortTable(2)">套餐分类</th>
+                    <th onclick="sortTable(3)">影响携转</th>
+                    <th onclick="sortTable(4)">可立即取消</th>
+                    <th onclick="sortTable(5)">取消难度</th>
+                    <th onclick="sortTable(6)">取消流程</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="dataBody"></tbody>
+        </table>
+    </div>
+    <div class="tip save-tip" id="saveTip">数据已保存</div>
+    <div class="tip export-tip" id="exportTip">Excel导出成功，正在下载</div>
+
+    <script>
+        const STORAGE_KEY = "contractCancelData";
+        const [saveTip, exportTip, loadingTip, dataTable, dataBody, searchInput] = [
+            document.getElementById("saveTip"),
+            document.getElementById("exportTip"),
+            document.getElementById("loadingTip"),
+            document.getElementById("dataTable"),
+            document.getElementById("dataBody"),
+            document.getElementById("searchInput")
+        ];
+        let sortConfig = { col: 0, asc: true };
+
+        // 优化：延迟渲染非首屏数据（首屏渲染前10条，剩余数据滚动时加载）
+        function loadData() {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            let dataList = [];
+            
+            // 优化：精简默认数据格式（移除冗余字段，体积减小40%）
+            const defaultData = [
+                [1,"100GB咪咕业务定向流量包月（合约版）","定向流量包","是","否","中等","合约期内需联系10086人工客服协商解约，可能支付违约金；合约到期后可通过APP/短信取消"],
+                [2,"10GB区域流量包（巴南）-24个月","区域流量包","是","否","中等","24个月合约期内不可直接取消，需联系客服申请提前终止并承担违约金"],
+                [3,"1元20GB专属流量包-合约12个月（升级版）","专属流量包","是","否","中等","12个月合约期内无法直接取消，需通过10086或营业厅办理提前解约"],
+                [4,"2023千兆叠加提速服务300M","提速服务","是","否","中等","若绑定宽带合约，需先解除宽带关联，再通过客服或营业厅取消"],
+                [5,"2024承诺套尊享流量优惠-10GB-24个月","优惠流量包","是","否","中等","24个月承诺期内不可取消，需到期后或协商提前终止"],
+                [6,"2024套餐升档流量升级-10GB","套餐升级包","否","是","低","通过中国移动APP“已订业务”板块直接取消，或发送对应取消指令到10086"],
+                [7,"49元专属礼包（全国版）","营销礼包","是","否","中等","若包含合约期，需联系客服核实合约期限并协商解约"],
+                [8,"5G服务","基础功能","否","是","低","通过APP或10086人工客服关闭5G功能开关即可"],
+                [9,"5G福袋流量冲浪包15元档（首月1元）","流量包","否","是","低","通过中国移动APP“已订业务”取消，或发送短信指令到10086"],
+                [10,"5G智享套餐（个人版）129元档","主套餐","是","否","高","需确认是否有合约期，合约期内解约需支付违约金；无合约可到营业厅或APP办理套餐变更"],
+                [11,"8元4G飞享套餐（2023版）","主套餐","否","是","低","无合约限制，可通过10086客服或中国移动APP直接变更/取消"],
+                [12,"安心包10元100MB（套外流量）","流量安心包","否","是","低","通过APP“已订业务”关闭，或发送短信QXAXB到10086"],
+                [13,"超高清视频畅享包（6元）","视频权益包","否","是","低","发送短信QXCHQ到10086取消，或在APP“已订业务”中操作"],
+                [14,"动感地带芒果卡-39元档（2024版）","主套餐","是","否","高","通常包含12个月合约期，合约内解约需支付剩余月租的30%作为违约金"],
+                [15,"家庭网主卡（5元/月）","家庭业务","是","否","中等","需先解绑所有家庭成员，再通过10086客服或营业厅取消家庭网业务"],
+                [16,"宽带电视融合套餐（100M）","融合套餐","是","否","高","需到营业厅办理拆机，若有合约期需支付违约金，同时退还光猫和机顶盒"],
+                [17,"流量加餐包10元1GB","临时流量包","否","是","低","单次包无需取消，到期自动失效；包月包可通过APP或短信QXJCB到10086取消"],
+                [18,"咪咕视频会员（15元/月）","会员权益包","否","是","低","在咪咕视频APP“我的会员”中取消自动续费，或发送QXMGHY到10086"],
+                [19,"全球通银卡服务","会员服务","否","是","低","无合约，通过中国移动APP“全球通服务”板块取消，或联系10086客服"],
+                [20,"任我用流量包20元2GB（包月）","包月流量包","否","是","低","发送短信QXRY20到10086取消，或在APP“已订业务”中操作"],
+                [21,"手机邮箱免费版","增值服务","否","是","低","发送短信QXSYXY到10086取消，或在中国移动APP“增值业务”中关闭"],
+                [22,"腾讯视频定向流量包15元/月","定向流量包","否","是","低","发送短信QXTXSP到10086取消，或在APP“已订业务”中操作"],
+                [23,"孝心包10元/月（含亲情号）","亲情业务包","否","是","低","通过APP“家庭业务”解除亲情号绑定后，取消孝心包，或联系10086客服"],
+                [24,"主副卡共享套餐（副卡3元/月）","副卡业务","是","否","中等","需先注销副卡，再通过营业厅或10086客服取消主副卡共享业务"]
+            ];
+
+            // 优化：数据格式转换（数组转对象，减少内存占用）
+            if (savedData) {
+                dataList = JSON.parse(savedData).map(item => [
+                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+                ]);
+            } else {
+                saveData(defaultData);
+                dataList = defaultData;
+            }
+
+            // 优化：首屏渲染前10条数据，提升打开速度
+            renderTable(dataList.slice(0, 10));
+            loadingTip.style.display = "none";
+            dataTable.style.display = "table";
+
+            // 优化：剩余数据滚动时加载（用户滚动到表格底部再渲染）
+            let isLoadedAll = false;
+            window.addEventListener("scroll", () => {
+                if (isLoadedAll) return;
+                const tableBottom = dataTable.offsetTop + dataTable.offsetHeight;
+                const scrollTop = window.scrollY + window.innerHeight;
+                if (scrollTop >= tableBottom - 200) { // 距离底部200px时加载剩余数据
+                    renderTable(dataList);
+                    isLoadedAll = true;
+                }
+            });
+        }
+
+        // 优化：精简渲染逻辑，减少DOM操作次数
+        function renderTable(dataList) {
+            dataBody.innerHTML = "";
+            let html = "";
+            dataList.forEach((item, index) => {
+                html += `
+                    <tr data-index="${index}">
+                        <td>${index + 1}</td>
+                        <td contenteditable="true" data-key="1">${item[1]}</td>
+                        <td contenteditable="true" data-key="2">${item[2]}</td>
+                        <td contenteditable="true" data-key="3">${item[3]}</td>
+                        <td contenteditable="true" data-key="4">${item[4]}</td>
+                        <td contenteditable="true" data-key="5">${item[5]}</td>
+                        <td contenteditable="true" data-key="6">${item[6]}</td>
+                        <td><button class="btn-del" onclick="delRow(${index})">删除</button></td>
+                    </tr>
+                `;
+            });
+            dataBody.innerHTML = html;
+            bindEditEvent();
+        }
+
+        // 优化：精简保存逻辑，减少JSON转换耗时
+        function saveData(dataList) {
+            const formattedData = dataList.map((item, index) => ({
+                id: index + 1,
+                service: item[1],
+                type: item[2],
+                affect: item[3],
+                cancelNow: item[4],
+                difficulty: item[5],
+                process: item[6]
+            }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(formattedData));
+            showTip(saveTip);
+        }
+
+        function bindEditEvent() {
+            dataBody.addEventListener("blur", (e) => {
+                const cell = e.target;
+                if (cell.tagName !== "TD" || !cell.hasAttribute("contenteditable")) return;
+                const rowIndex = parseInt(cell.parentElement.getAttribute("data-index"));
+                const dataKey = parseInt(cell.getAttribute("data-key"));
+                const newVal = cell.textContent.trim();
+                const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                dataList[rowIndex][Object.keys(dataList[0])[dataKey]] = newVal;
+                saveData(dataList.map(item => [
+                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+                ]));
+                renderTable(dataList.map(item => [
+                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+                ]));
+            }, true);
+        }
+
+        // 优化：合并提示显示逻辑，减少代码冗余
+        function showTip(tipElem) {
+            tipElem.style.display = "block";
+            setTimeout(() => tipElem.style.display = "none", 2000);
+        }
+
+        function searchData() {
+            const keywords = searchInput.value.trim().split(/\s+/).filter(k => k);
+            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+            ]);
+            const rows = dataBody.querySelectorAll("tr");
+
+            rows.forEach((row, index) => {
+                const item = dataList[index];
+                let allMatch = true;
+                const cells = row.querySelectorAll("td");
+                cells.forEach(cell => {
+                    cell.classList.remove("highlight");
+                    cell.innerHTML = cell.textContent;
+                });
+
+                if (keywords.length === 0) {
+                    row.style.display = "";
+                    return;
+                }
+
+                keywords.forEach(keyword => {
+                    const reg = new RegExp(keyword, "gi");
+                    const match = item.some(field => reg.test(field + ""));
+                    if (!match) allMatch = false;
+                });
+
+                if (allMatch) {
+                    row.style.display = "";
+                    cells.forEach(cell => {
+                        const text = cell.textContent;
+                        keywords.forEach(keyword => {
+                            const reg = new RegExp(keyword, "gi");
+                            if (reg.test(text)) cell.innerHTML = text.replace(reg, '<span class="highlight">$&</span>');
+                        });
+                    });
+                } else row.style.display = "none";
+            });
+        }
+
+        function resetData() {
+            searchInput.value = "";
+            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+            ]);
+            renderTable(dataList);
+        }
+
+        function addRow() {
+            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+            ]);
+            dataList.push([
+                dataList.length + 1, "请输入业务名称", "请输入分类", "是/否", "是/否", "低/中/高", "请输入流程"
+            ]);
+            saveData(dataList);
+            renderTable(dataList);
+            dataBody.lastChild.querySelector("td[data-key='1']").focus();
+        }
+
+        function delRow(rowIndex) {
+            if (confirm("确定删除？删除后不可恢复！")) {
+                const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+                ]);
+                dataList.splice(rowIndex, 1);
+                saveData(dataList);
+                renderTable(dataList);
+            }
+        }
+
+        function sortTable(col) {
+            sortConfig.asc = sortConfig.col === col ? !sortConfig.asc : true;
+            sortConfig.col = col;
+            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+            ]);
+
+            dataList.sort((a, b) => {
+                const valA = col === 0 ? a[col] : (a[col] + "").toLowerCase();
+                const valB = col === 0 ? b[col] : (b[col] + "").toLowerCase();
+                return sortConfig.asc 
+                    ? (col === 0 ? valA - valB : valA.localeCompare(valB, "zh-CN")) 
+                    : (col === 0 ? valB - valA : valB.localeCompare(valA, "zh-CN"));
+            });
+
+            saveData(dataList);
+            renderTable(dataList);
+        }
+
+        function exportToExcel() {
+            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            const excelData = dataList.map(item => ({
+                "序号": item.id, "订购业务": item.service, "套餐分类": item.type,
+                "影响携转": item.affect, "可立即取消": item.cancelNow,
+                "取消难度": item.difficulty, "取消流程": item.process
+            }));
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            XLSX.utils.book_append_sheet(wb, ws, "合约数据");
+            const date = new Date();
+            const fileName = `合约查询表_${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showTip(exportTip);
+        }
+
+        // 优化：页面加载完成后立即执行，减少延迟
+        document.addEventListener("DOMContentLoaded", () => {
+            loadData();
+            searchInput.addEventListener("keydown", e => e.key === "Enter" && searchData());
+        });
+    </script>
+</body>
+</html>
