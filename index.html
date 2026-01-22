@@ -3,191 +3,543 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>合约取消查询系统</title>
+    <title>携号转网合约查询系统</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.core.min.js"></script>
     <style>
-        * {margin:0;padding:0;box-sizing:border-box;font-family:"微软雅黑",sans-serif;}
-        body {padding:20px;max-width:1600px;margin:0 auto;background:#f8f9fa;}
-        .title {text-align:center;font-size:24px;font-weight:bold;color:#343a40;margin:15px 0;}
-        .search-box {background:#fff;padding:15px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05);margin-bottom:20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
-        .search-box input {flex:1;min-width:250px;padding:10px 15px;border:1px solid #ced4da;border-radius:6px;font-size:15px;outline:none;transition:border-color 0.3s;}
-        .search-box input:focus {border-color:#409eff;box-shadow:0 0 0 2px rgba(64,158,255,0.2);}
-        .search-box button {padding:10px 20px;border:none;border-radius:6px;font-size:15px;cursor:pointer;color:#fff;transition:opacity 0.3s;}
-        .search-box button:hover {opacity:0.9;}
-        .btn-search {background:#409eff;}
-        .btn-reset {background:#6c757d;}
-        .btn-add {background:#28a745;}
-        .btn-export {background:#ff7f0e;}
-        .table-container {background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05);overflow-x:auto;margin-bottom:20px;}
-        table {width:100%;border-collapse:collapse;text-align:center;}
-        th, td {padding:12px 8px;border:1px solid #e9ecef;min-width:120px;word-break:break-word;font-size:14px;}
-        th {background:#f8f9fa;font-weight:bold;cursor:pointer;}
-        th:hover {background:#e9ecef;}
-        td {cursor:cell;}
-        td:focus {outline:2px solid #409eff;outline-offset:-1px;}
-        .highlight {background:#fff3cd;font-weight:bold;color:#856404;}
-        .btn-del {padding:5px 10px;background:#dc3545;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;}
-        .tip {text-align:center;margin-top:8px;font-size:13px;display:none;}
-        .save-tip {color:#28a745;}
-        .export-tip {color:#ff7f0e;}
-        .error-tip {color:#dc3545;}
-        /* 翻页样式 */
-        .pagination {display:flex;justify-content:center;align-items:center;gap:8px;margin:15px 0;flex-wrap:wrap;}
-        .pagination-btn {padding:8px 15px;border:1px solid #ced4da;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;transition:all 0.3s;}
-        .pagination-btn:hover {background:#e9ecef;border-color:#adb5bd;}
-        .pagination-btn.active {background:#409eff;color:#fff;border-color:#409eff;}
-        .pagination-btn:disabled {cursor:not-allowed;opacity:0.6;background:#f8f9fa;}
-        .pagination-info {font-size:14px;color:#6c757d;margin:0 10px;}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "微软雅黑", "Microsoft YaHei", sans-serif;
+        }
+        body {
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            background: #f0f8ff;
+            min-height: 100vh;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px 0;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .auth-status {
+            font-size: 13px;
+            color: #34495e;
+        }
+        .auth-status button {
+            padding: 3px 8px;
+            border: none;
+            border-radius: 4px;
+            background: #3498db;
+            color: #fff;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 5px;
+            transition: background 0.2s;
+        }
+        .auth-status button:hover {
+            background: #2980b9;
+        }
+        .search-box {
+            background: #fff;
+            padding: 18px;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        .search-box input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 15px;
+            border: 1px solid #dce4ec;
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .search-box input:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        .search-box button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+            color: #fff;
+            transition: all 0.3s;
+        }
+        .search-box button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .btn-search {
+            background: #3498db;
+        }
+        .btn-reset {
+            background: #95a5a6;
+        }
+        .btn-add {
+            background: #2ecc71;
+            display: none; /* 默认隐藏 */
+        }
+        .btn-export {
+            background: #f39c12;
+            display: none; /* 默认隐藏 */
+        }
+        .table-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+            overflow-x: auto;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            table-layout: fixed; /* 固定表格布局，确保列宽生效 */
+        }
+        th, td {
+            padding: 14px 10px;
+            border: 1px solid #dce4ec;
+            word-break: break-word;
+            font-size: 14px;
+            overflow: hidden;
+        }
+        /* 精准设置各列宽度（满足需求：序号/套餐分类等变窄，订购业务/取消流程变宽） */
+        .col-id { width: 60px; } /* 序号 - 最窄 */
+        .col-service { width: 300px; } /* 订购业务 - 最宽 */
+        .col-type { width: 100px; } /* 套餐分类 - 窄 */
+        .col-affect { width: 80px; } /* 影响携转 - 窄 */
+        .col-cancelNow { width: 80px; } /* 可立即取消 - 窄 */
+        .col-difficulty { width: 80px; } /* 取消难度 - 窄 */
+        .col-process { width: 400px; } /* 取消流程 - 最宽 */
 
-        @media (max-width:768px) {
-            th, td {min-width:90px;padding:8px 5px;font-size:12px;}
-            .search-box button {flex:1 0 100%;padding:9px 15px;font-size:14px;}
-            .search-box input {min-width:100%;}
-            .pagination-btn {padding:6px 12px;font-size:13px;}
+        th {
+            background: #f8fafc;
+            font-weight: bold;
+            cursor: pointer;
+            color: #2c3e50;
+            transition: background 0.2s;
+        }
+        th:hover {
+            background: #f1f5f9;
+        }
+        td {
+            cursor: default;
+            color: #34495e;
+        }
+        .admin-td {
+            cursor: cell;
+            transition: background 0.2s;
+        }
+        .admin-td.editable {
+            outline: 2px solid #3498db;
+            outline-offset: -1px;
+            background: #f8fcff;
+        }
+        .highlight {
+            background: #fffbeb;
+            font-weight: 500;
+            color: #d35400;
+        }
+        .tip {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 13px;
+            display: none;
+        }
+        .save-tip {
+            color: #2ecc71;
+        }
+        .export-tip {
+            color: #f39c12;
+        }
+        .login-tip {
+            color: #3498db;
+        }
+        .loading-tip {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin: 20px 0;
+            padding: 12px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+        }
+        .pagination button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            background: #3498db;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .pagination button:disabled {
+            background: #dce4ec;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .pagination button:hover:not(:disabled) {
+            background: #2980b9;
+        }
+        .pagination .page-num {
+            padding: 8px 12px;
+            border: 1px solid #dce4ec;
+            border-radius: 8px;
+            background: #fff;
+            font-size: 14px;
+            color: #34495e;
+        }
+        .pagination .page-num.active {
+            background: #3498db;
+            color: #fff;
+            border-color: #3498db;
+        }
+        .pagination .page-info {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin: 0 10px;
+        }
+        .login-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            display: none;
+            will-change: opacity;
+        }
+        .login-box {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            width: 350px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        .login-box h3 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            border: 1px solid #dce4ec;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .login-box input:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #3498db;
+            color: #fff;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .login-box button:hover {
+            background: #2980b9;
+            opacity: 0.9;
+        }
+        .login-box .error-tip {
+            color: #e74c3c;
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 10px;
+            display: none;
+        }
+        @media (max-width: 768px) {
+            /* 移动端适配列宽，保证不拥挤 */
+            .col-id { width: 40px; }
+            .col-service { width: 150px; }
+            .col-type { width: 70px; }
+            .col-affect { width: 60px; }
+            .col-cancelNow { width: 60px; }
+            .col-difficulty { width: 60px; }
+            .col-process { width: 200px; }
+
+            th, td {
+                padding: 10px 6px;
+                font-size: 12px;
+            }
+            .search-box button {
+                flex: 1 0 100%;
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+            .search-box input {
+                min-width: 100%;
+            }
+            .login-box {
+                width: 90%;
+                padding: 25px;
+            }
+            .title {
+                font-size: 20px;
+            }
+            .pagination {
+                flex-wrap: wrap;
+                padding: 10px;
+            }
+            .pagination .page-info {
+                width: 100%;
+                text-align: center;
+                margin-bottom: 8px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="title">合约取消查询系统</div>
+    <!-- 头部：标题+权限状态 -->
+    <div class="header">
+        <div class="title">携号转网合约查询系统</div>
+        <div class="auth-status" id="authStatus">
+            当前身份：普通用户（仅查看/搜索）
+            <button onclick="showLoginModal()">管理员登录</button>
+        </div>
+    </div>
+
+    <!-- 搜索区域 -->
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="多关键词查询（空格分隔，如：5G 合约）">
+        <input type="text" id="searchInput" placeholder="多关键词查询（空格分隔，如：5G 合约 是）">
         <button class="btn-search" onclick="searchData()">查询</button>
         <button class="btn-reset" onclick="resetData()">重置</button>
-        <button class="btn-add" onclick="addRow()">新增</button>
-        <button class="btn-export" onclick="exportToExcel()">导出Excel</button>
+        <button class="btn-add" id="btnAdd" onclick="addRow()">新增数据</button>
+        <button class="btn-export" id="btnExport" onclick="exportToExcel()">导出Excel</button>
     </div>
+
+    <!-- 表格区域（修正多余符号，添加列宽类） -->
     <div class="table-container">
-        <table id="dataTable">
+        <div class="loading-tip" id="loadingTip">数据加载中...</div>
+        <table id="dataTable" style="display:none;">
             <thead>
                 <tr>
-                    <<th onclick="sortTable(0)">序号</</th>
-                    <<th onclick="sortTable(1)">订购业务</</th>
-                    <<th onclick="sortTable(2)">套餐分类</</th>
-                    <<th onclick="sortTable(3)">影响携转</</th>
-                    <<th onclick="sortTable(4)">可立即取消</</th>
-                    <<th onclick="sortTable(5)">取消难度</</th>
-                    <<th onclick="sortTable(6)">取消流程</</th>
-                    <<th>操作</</th>
+                    <th class="col-id" onclick="sortTable(0)">序号</th>
+                    <th class="col-service" onclick="sortTable(1)">订购业务</th>
+                    <th class="col-type" onclick="sortTable(2)">套餐分类</th>
+                    <th class="col-affect" onclick="sortTable(3)">影响携转</th>
+                    <th class="col-cancelNow" onclick="sortTable(4)">可立即取消</th>
+                    <th class="col-difficulty" onclick="sortTable(5)">取消难度</th>
+                    <th class="col-process" onclick="sortTable(6)">取消流程</th>
                 </tr>
             </thead>
             <tbody id="dataBody"></tbody>
         </table>
     </div>
-    <!-- 翻页控件 -->
-    <div class="pagination" id="pagination">
-        <button class="pagination-btn" id="prevBtn" onclick="changePage(-1)" disabled>上一页</button>
-        <span class="pagination-info" id="pageInfo">第 1 页 / 共 1 页</span>
-        <button class="pagination-btn" id="nextBtn" onclick="changePage(1)" disabled>下一页</button>
+
+    <!-- 翻页区域 -->
+    <div class="pagination" id="pagination" style="display:none;">
+        <button id="prevPage" onclick="changePage(currentPage - 1)" disabled>上一页</button>
+        <div class="page-info" id="pageInfo">第 1 / 1 页</div>
+        <div id="pageNumList" class="page-num-list"></div>
+        <button id="nextPage" onclick="changePage(currentPage + 1)" disabled>下一页</button>
     </div>
-    <div class="tip save-tip" id="saveTip">数据已保存</div>
-    <div class="tip export-tip" id="exportTip">Excel导出成功，正在下载</div>
-    <div class="tip error-tip" id="errorTip">密码错误，无权操作</div>
+
+    <!-- 提示信息 -->
+    <div class="tip save-tip" id="saveTip">数据已保存成功！</div>
+    <div class="tip export-tip" id="exportTip">Excel导出成功，正在下载...</div>
+    <div class="tip login-tip" id="loginTip">管理员登录成功！已解锁全部操作权限</div>
+
+    <!-- 管理员登录弹窗 -->
+    <div class="login-modal" id="loginModal">
+        <div class="login-box">
+            <h3>管理员登录</h3>
+            <div class="error-tip" id="loginError">账号或密码错误，请重试</div>
+            <input type="text" id="adminUser" placeholder="请输入管理员账号" autocomplete="off">
+            <input type="password" id="adminPwd" placeholder="请输入管理员密码" autocomplete="off">
+            <button onclick="doLogin()">登录</button>
+        </div>
+    </div>
 
     <script>
-        const STORAGE_KEY = "contractCancelData";
-        // 翻页配置
-        const PAGE_SIZE = 20; // 每页显示20条
-        let currentPage = 1;  // 当前页码
-        let totalPages = 1;   // 总页数
-        let currentDataList = []; // 当前筛选后的全部数据
+        // 核心配置
+        const CONFIG = {
+            ADMIN: { username: "rongxuekeji", password: "6361301" },
+            STORAGE_KEY: "numberPortabilityData",
+            LOGIN_STATUS_KEY: "adminLoginStatus",
+            PAGE_SIZE: 20,
+            DEBOUNCE_TIME: 300,
+            THROTTLE_TIME: 200
+        };
 
-        const [saveTip, exportTip, errorTip, dataTable, dataBody, searchInput, pagination, pageInfo, prevBtn, nextBtn] = [
-            document.getElementById("saveTip"),
-            document.getElementById("exportTip"),
-            document.getElementById("errorTip"),
-            document.getElementById("dataTable"),
-            document.getElementById("dataBody"),
-            document.getElementById("searchInput"),
-            document.getElementById("pagination"),
-            document.getElementById("pageInfo"),
-            document.getElementById("prevBtn"),
-            document.getElementById("nextBtn")
-        ];
+        // 全局状态
+        let isAdmin = false;
         let sortConfig = { col: 0, asc: true };
-        const OPERATE_PASSWORD = "6361301";  // 新增/删除/导出共用密码
+        let fullData = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let filteredData = [];
+        let debouncedSaveData = null;
+        let throttledScrollLoad = null;
 
-        // 显示提示
-        function showTip(tipElem) {
-            tipElem.style.display = "block";
-            setTimeout(() => tipElem.style.display = "none", 2000);
+        // DOM元素缓存
+        const DOM = (() => {
+            const el = id => document.getElementById(id);
+            return {
+                searchInput: el("searchInput"),
+                dataTable: el("dataTable"),
+                dataBody: el("dataBody"),
+                loadingTip: el("loadingTip"),
+                saveTip: el("saveTip"),
+                exportTip: el("exportTip"),
+                loginTip: el("loginTip"),
+                authStatus: el("authStatus"),
+                btnAdd: el("btnAdd"),
+                btnExport: el("btnExport"),
+                loginModal: el("loginModal"),
+                loginError: el("loginError"),
+                adminUser: el("adminUser"),
+                adminPwd: el("adminPwd"),
+                pagination: el("pagination"),
+                prevPage: el("prevPage"),
+                nextPage: el("nextPage"),
+                pageInfo: el("pageInfo"),
+                pageNumList: el("pageNumList")
+            };
+        })();
+
+        // 工具函数：防抖
+        function debounce(fn, delay) {
+            let timer = null;
+            return function(...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
         }
 
-        // 密码验证通用函数
-        function verifyPassword() {
-            const password = prompt("请输入操作密码：");
-            return password === OPERATE_PASSWORD;
-        }
-
-        // 删除（带密码验证）
-        function delRow(rowIndex) {
-            // 验证密码
-            if (!verifyPassword()) {
-                showTip(errorTip);
-                return;
-            }
-
-            // 转换为原始数据的索引（当前页的行号 -> 全局数据的索引）
-            const originalIndex = (currentPage - 1) * PAGE_SIZE + rowIndex;
-            
-            if (confirm("确定删除？删除后不可恢复！")) {
-                // 获取原始完整数据
-                const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
-                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-                ]);
-                // 删除对应数据
-                fullData.splice(originalIndex, 1);
-                saveData(fullData);
-                // 重新加载数据并保持当前页（如果当前页无数据则回退到上一页）
-                loadData();
-                if (currentPage > totalPages) {
-                    currentPage = totalPages;
-                    renderPageData();
+        // 工具函数：节流
+        function throttle(fn, interval) {
+            let lastTime = 0;
+            return function(...args) {
+                const now = Date.now();
+                if (now - lastTime >= interval) {
+                    lastTime = now;
+                    fn.apply(this, args);
                 }
-            }
+            };
         }
 
-        // 新增（带密码验证）
-        function addRow() {
-            // 验证密码
-            if (!verifyPassword()) {
-                showTip(errorTip);
-                return;
-            }
-
-            // 获取完整数据
-            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
-                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-            ]);
-            // 新增行
-            fullData.push(["", "新业务", "新分类", "是/否", "是/否", "难度", "流程"]);
-            saveData(fullData);
-            // 重新加载数据并跳转到最后一页
-            loadData();
-            currentPage = totalPages;
-            renderPageData();
-        }
-
-        // 导出Excel（带密码验证）
-        function exportToExcel() {
-            // 验证密码
-            if (!verifyPassword()) {
-                showTip(errorTip);
-                return;
-            }
-
-            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY));
-            const ws = XLSX.utils.json_to_sheet(fullData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "合约取消数据");
-            XLSX.writeFile(wb, "合约取消查询表.xlsx");
-            showTip(exportTip);
-        }
-
-        // 加载数据（包含翻页初始化）
-        function loadData() {
-            const savedData = localStorage.getItem(STORAGE_KEY);
-            let fullData = [];
+        // 页面初始化
+        document.addEventListener("DOMContentLoaded", () => {
+            debouncedSaveData = debounce(saveData, CONFIG.DEBOUNCE_TIME);
+            throttledScrollLoad = throttle(() => {}, CONFIG.THROTTLE_TIME);
             
+            checkLoginStatus();
+            loadData();
+            
+            DOM.searchInput.addEventListener("keydown", e => e.key === "Enter" && searchData());
+            DOM.loginModal.addEventListener("click", e => e.target === DOM.loginModal && closeLoginModal());
+            DOM.dataBody.addEventListener("click", handleCellClick);
+            DOM.dataBody.addEventListener("blur", handleCellBlur, true);
+        });
+
+        /** 权限控制 **/
+        function checkLoginStatus() {
+            const loginStatus = localStorage.getItem(CONFIG.LOGIN_STATUS_KEY);
+            if (loginStatus === "true") {
+                isAdmin = true;
+                updateAdminPermission();
+            }
+        }
+
+        function updateAdminPermission() {
+            if (isAdmin) {
+                DOM.btnAdd.style.display = "block";
+                DOM.btnExport.style.display = "block";
+                DOM.authStatus.innerHTML = `
+                    当前身份：管理员（全部权限）
+                    <button onclick="logoutAdmin()">退出登录</button>
+                `;
+            } else {
+                DOM.btnAdd.style.display = "none";
+                DOM.btnExport.style.display = "none";
+                DOM.authStatus.innerHTML = `
+                    当前身份：普通用户（仅查看/搜索）
+                    <button onclick="showLoginModal()">管理员登录</button>
+                `;
+            }
+            renderTable(getCurrentPageData());
+            showTip(DOM.loginTip);
+        }
+
+        function doLogin() {
+            const username = DOM.adminUser.value.trim();
+            const password = DOM.adminPwd.value.trim();
+            
+            if (username === CONFIG.ADMIN.username && password === CONFIG.ADMIN.password) {
+                isAdmin = true;
+                localStorage.setItem(CONFIG.LOGIN_STATUS_KEY, "true");
+                closeLoginModal();
+                updateAdminPermission();
+            } else {
+                DOM.loginError.style.display = "block";
+                setTimeout(() => DOM.loginError.style.display = "none", 2000);
+            }
+        }
+
+        function logoutAdmin() {
+            isAdmin = false;
+            localStorage.removeItem(CONFIG.LOGIN_STATUS_KEY);
+            updateAdminPermission();
+        }
+
+        function showLoginModal() {
+            DOM.loginModal.style.display = "flex";
+            DOM.loginError.style.display = "none";
+            DOM.adminUser.value = "";
+            DOM.adminPwd.value = "";
+            DOM.adminUser.focus();
+        }
+
+        function closeLoginModal() {
+            DOM.loginModal.style.display = "none";
+        }
+
+        /** 数据处理 **/
+        function loadData() {
+            const savedData = localStorage.getItem(CONFIG.STORAGE_KEY);
             const defaultData = [
                 [1,"100GB咪咕业务定向流量包月（合约版）","定向流量包","是","否","中等","合约期内需联系10086人工客服协商解约，可能支付违约金；合约到期后可通过APP/短信取消"],
                 [2,"10GB区域流量包（巴南）-24个月","区域流量包","是","否","中等","24个月合约期内不可直接取消，需联系客服申请提前终止并承担违约金"],
@@ -216,168 +568,273 @@
             ];
 
             if (savedData) {
-                fullData = JSON.parse(savedData).map(item => [
-                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-                ]);
+                fullData = JSON.parse(savedData);
             } else {
-                saveData(defaultData);
-                fullData = defaultData;
+                fullData = defaultData.map((item, index) => ({
+                    id: index + 1,
+                    service: item[1],
+                    type: item[2],
+                    affect: item[3],
+                    cancelNow: item[4],
+                    difficulty: item[5],
+                    process: item[6]
+                }));
+                saveData(fullData);
             }
-            
-            // 初始化当前数据列表（未筛选）
-            currentDataList = fullData;
-            // 计算总页数
-            totalPages = Math.ceil(currentDataList.length / PAGE_SIZE);
-            // 重置当前页为第一页
+
+            filteredData = [...fullData];
+            calculateTotalPages();
             currentPage = 1;
-            // 渲染当前页数据
-            renderPageData();
+            renderTable(getCurrentPageData());
+            renderPagination();
+
+            DOM.loadingTip.style.display = "none";
+            DOM.dataTable.style.display = "table";
+            DOM.pagination.style.display = "flex";
         }
 
-        // 渲染当前页数据
-        function renderPageData() {
-            // 计算当前页数据的起始和结束索引
-            const startIndex = (currentPage - 1) * PAGE_SIZE;
-            const endIndex = Math.min(startIndex + PAGE_SIZE, currentDataList.length);
-            // 获取当前页数据
-            const pageData = currentDataList.slice(startIndex, endIndex);
-            
-            // 渲染表格
-            dataBody.innerHTML = "";
-            let html = "";
-            pageData.forEach((item, index) => {
-                // 显示的序号 = 全局索引 + 1
-                const showIndex = startIndex + index + 1;
-                html += `
-                    <tr data-index="${index}">
-                        <td>${showIndex}</td>
-                        <td contenteditable="true" data-key="1">${item[1]}</td>
-                        <td contenteditable="true" data-key="2">${item[2]}</td>
-                        <td contenteditable="true" data-key="3">${item[3]}</td>
-                        <td contenteditable="true" data-key="4">${item[4]}</td>
-                        <td contenteditable="true" data-key="5">${item[5]}</td>
-                        <td contenteditable="true" data-key="6">${item[6]}</td>
-                        <td><button class="btn-del" onclick="delRow(${index})">删除</button></td>
-                    </tr>
-                `;
+        function calculateTotalPages() {
+            totalPages = Math.ceil(filteredData.length / CONFIG.PAGE_SIZE) || 1;
+        }
+
+        function getCurrentPageData() {
+            const startIndex = (currentPage - 1) * CONFIG.PAGE_SIZE;
+            const endIndex = startIndex + CONFIG.PAGE_SIZE;
+            return filteredData.slice(startIndex, endIndex);
+        }
+
+        // 渲染表格：保留批量插入优化，继承列宽类
+        function renderTable(dataList) {
+            const fragment = document.createDocumentFragment();
+            dataList.forEach((item, index) => {
+                const tr = document.createElement("tr");
+                tr.setAttribute("data-index", (currentPage - 1) * CONFIG.PAGE_SIZE + index);
+                
+                const createTd = (content, isEditable = false, dataKey = "", colClass = "") => {
+                    const td = document.createElement("td");
+                    td.textContent = content;
+                    if (colClass) td.classList.add(colClass);
+                    if (isEditable && isAdmin) {
+                        td.classList.add("admin-td");
+                        td.setAttribute("data-key", dataKey);
+                    }
+                    return td;
+                };
+
+                tr.appendChild(createTd(item.id, false, "", "col-id"));
+                tr.appendChild(createTd(item.service, true, "service", "col-service"));
+                tr.appendChild(createTd(item.type, true, "type", "col-type"));
+                tr.appendChild(createTd(item.affect, true, "affect", "col-affect"));
+                tr.appendChild(createTd(item.cancelNow, true, "cancelNow", "col-cancelNow"));
+                tr.appendChild(createTd(item.difficulty, true, "difficulty", "col-difficulty"));
+                tr.appendChild(createTd(item.process, true, "process", "col-process"));
+
+                fragment.appendChild(tr);
             });
-            dataBody.innerHTML = html;
-            bindEditEvent();
-            
-            // 更新翻页控件状态
-            updatePagination();
-        }
 
-        // 更新翻页控件状态
-        function updatePagination() {
-            // 更新页码信息
-            pageInfo.textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
-            // 禁用/启用上一页按钮
-            prevBtn.disabled = currentPage <= 1;
-            // 禁用/启用下一页按钮
-            nextBtn.disabled = currentPage >= totalPages;
-        }
+            DOM.dataBody.innerHTML = "";
+            DOM.dataBody.appendChild(fragment);
 
-        // 切换页码（prev=-1, next=1）
-        function changePage(direction) {
-            const newPage = currentPage + direction;
-            if (newPage >= 1 && newPage <= totalPages) {
-                currentPage = newPage;
-                renderPageData();
-            }
-        }
-
-        // 保存数据
-        function saveData(dataList) {
-            const formattedData = dataList.map((item, index) => ({
-                id: index + 1,
-                service: item[1],
-                type: item[2],
-                affect: item[3],
-                cancelNow: item[4],
-                difficulty: item[5],
-                process: item[6]
-            }));
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(formattedData));
-            showTip(saveTip);
-        }
-
-        // 编辑事件（适配翻页）
-        function bindEditEvent() {
-            dataBody.addEventListener("blur", (e) => {
-                const cell = e.target;
-                if (cell.tagName !== "TD" || !cell.hasAttribute("contenteditable")) return;
-                
-                // 当前页的行索引
-                const rowIndex = parseInt(cell.parentElement.getAttribute("data-index"));
-                // 转换为全局数据索引
-                const originalIndex = (currentPage - 1) * PAGE_SIZE + rowIndex;
-                const dataKey = parseInt(cell.getAttribute("data-key"));
-                const newVal = cell.textContent.trim();
-                
-                // 获取完整数据
-                const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY));
-                fullData[originalIndex][Object.keys(fullData[0])[dataKey]] = newVal;
-                
-                // 保存并重新渲染
-                saveData(fullData.map(item => [
-                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-                ]));
-                loadData();
-            }, true);
-        }
-
-        // 查询（适配翻页）
-        function searchData() {
-            const keywords = searchInput.value.trim().split(/\s+/).filter(k => k);
-            // 获取完整数据
-            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
-                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-            ]);
-            
-            // 筛选数据
+            const keywords = DOM.searchInput.value.trim().split(/\s+/).filter(k => k);
             if (keywords.length > 0) {
-                currentDataList = fullData.filter(item => 
-                    keywords.every(key => item.some(field => (field + "").toLowerCase().includes(key.toLowerCase())))
-                );
-            } else {
-                currentDataList = fullData;
+                highlightKeywords(keywords);
             }
-            
-            // 重置页码并渲染
-            totalPages = Math.ceil(currentDataList.length / PAGE_SIZE);
-            currentPage = 1;
-            renderPageData();
         }
 
-        // 重置
-        function resetData() {
-            searchInput.value = "";
-            // 恢复为完整数据
-            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
-                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-            ]);
-            currentDataList = fullData;
-            totalPages = Math.ceil(currentDataList.length / PAGE_SIZE);
-            currentPage = 1;
-            renderPageData();
-        }
-
-        // 排序（适配翻页）
-        function sortTable(colIndex) {
-            // 对当前筛选后的全部数据排序
-            currentDataList.sort((a, b) => {
-                const valA = a[colIndex], valB = b[colIndex];
-                if (sortConfig.col === colIndex) sortConfig.asc = !sortConfig.asc;
-                else sortConfig = { col: colIndex, asc: true };
-                return sortConfig.asc ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
+        function highlightKeywords(keywords) {
+            const rows = DOM.dataBody.querySelectorAll("tr");
+            rows.forEach(row => {
+                const tds = row.querySelectorAll("td:not(.col-id)");
+                tds.forEach(td => {
+                    let text = td.textContent;
+                    keywords.forEach(keyword => {
+                        const reg = new RegExp(`(${keyword})`, "gi");
+                        text = text.replace(reg, '<span class="highlight">$1</span>');
+                    });
+                    td.innerHTML = text;
+                });
             });
-            // 保持当前页渲染
-            renderPageData();
         }
 
-        // 页面加载时执行
-        window.onload = loadData;
+        function renderPagination() {
+            DOM.pageInfo.innerHTML = `第 ${currentPage} / ${totalPages} 页（共 ${filteredData.length} 条数据）`;
+            DOM.prevPage.disabled = currentPage === 1;
+            DOM.nextPage.disabled = currentPage === totalPages;
+
+            DOM.pageNumList.innerHTML = "";
+            const pageRange = [];
+            if (totalPages <= 5) {
+                pageRange.push(...Array.from({ length: totalPages }, (_, i) => i + 1));
+            } else {
+                pageRange.push(1);
+                if (currentPage > 3) pageRange.push("...");
+                const start = Math.max(2, currentPage - 1);
+                const end = Math.min(totalPages - 1, currentPage + 1);
+                for (let i = start; i <= end; i++) pageRange.push(i);
+                if (currentPage < totalPages - 2) pageRange.push("...");
+                pageRange.push(totalPages);
+            }
+
+            pageRange.forEach(num => {
+                if (num === "...") {
+                    const span = document.createElement("span");
+                    span.className = "page-num";
+                    span.textContent = num;
+                    DOM.pageNumList.appendChild(span);
+                } else {
+                    const btn = document.createElement("button");
+                    btn.className = `page-num ${num === currentPage ? "active" : ""}`;
+                    btn.textContent = num;
+                    btn.onclick = () => changePage(num);
+                    DOM.pageNumList.appendChild(btn);
+                }
+            });
+        }
+
+        function changePage(targetPage) {
+            if (targetPage < 1 || targetPage > totalPages) return;
+            currentPage = targetPage;
+            renderTable(getCurrentPageData());
+            renderPagination();
+            DOM.dataTable.scrollIntoView({ behavior: "auto", block: "top" });
+        }
+
+        function saveData(dataList) {
+            if (!isAdmin) return;
+            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(dataList));
+            showTip(DOM.saveTip);
+        }
+
+        /** 单元格编辑 **/
+        function handleCellClick(e) {
+            const cell = e.target;
+            if (cell.tagName !== "TD" || !cell.classList.contains("admin-td")) return;
+            
+            document.querySelectorAll(".admin-td.editable").forEach(td => {
+                td.contentEditable = "false";
+                td.classList.remove("editable");
+            });
+            
+            cell.contentEditable = "true";
+            cell.classList.add("editable");
+            cell.focus();
+        }
+
+        function handleCellBlur(e) {
+            const cell = e.target;
+            if (cell.tagName !== "TD" || !cell.classList.contains("admin-td")) return;
+            
+            cell.contentEditable = "false";
+            cell.classList.remove("editable");
+            
+            const rowIndex = parseInt(cell.parentElement.getAttribute("data-index"));
+            const dataKey = cell.getAttribute("data-key");
+            const newVal = cell.textContent.trim() || cell.textContent;
+
+            if (fullData[rowIndex][dataKey] !== newVal) {
+                fullData[rowIndex][dataKey] = newVal;
+                filteredData[rowIndex][dataKey] = newVal;
+                debouncedSaveData(fullData);
+            }
+        }
+
+        /** 功能操作 **/
+        function searchData() {
+            const keywords = DOM.searchInput.value.trim().split(/\s+/).filter(k => k);
+
+            filteredData = keywords.length === 0 
+                ? [...fullData] 
+                : fullData.filter(item => {
+                    const itemStr = Object.values(item).join(" ").toLowerCase();
+                    return keywords.every(key => itemStr.includes(key.toLowerCase()));
+                });
+
+            calculateTotalPages();
+            currentPage = 1;
+            renderTable(getCurrentPageData());
+            renderPagination();
+        }
+
+        function resetData() {
+            DOM.searchInput.value = "";
+            filteredData = [...fullData];
+            calculateTotalPages();
+            currentPage = 1;
+            renderTable(getCurrentPageData());
+            renderPagination();
+        }
+
+        function addRow() {
+            if (!isAdmin) return;
+            const newRow = {
+                id: fullData.length + 1,
+                service: "请输入业务名称",
+                type: "请输入套餐分类",
+                affect: "是/否",
+                cancelNow: "是/否",
+                difficulty: "低/中/高",
+                process: "请输入取消流程"
+            };
+
+            fullData.push(newRow);
+            filteredData.push(newRow);
+            debouncedSaveData(fullData);
+            calculateTotalPages();
+            currentPage = totalPages;
+            renderTable(getCurrentPageData());
+            renderPagination();
+
+            const lastRow = DOM.dataBody.lastChild;
+            if (lastRow) lastRow.querySelector(".admin-td").click();
+        }
+
+        function sortTable(col) {
+            const sortKey = ["id", "service", "type", "affect", "cancelNow", "difficulty", "process"][col];
+            sortConfig.asc = sortConfig.col === col ? !sortConfig.asc : true;
+            sortConfig.col = col;
+
+            filteredData.sort((a, b) => {
+                let valA = a[sortKey];
+                let valB = b[sortKey];
+                
+                if (sortKey === "id") {
+                    return sortConfig.asc ? valA - valB : valB - valA;
+                }
+                
+                valA = (valA + "").toLowerCase();
+                valB = (valB + "").toLowerCase();
+                return sortConfig.asc 
+                    ? valA.localeCompare(valB, "zh-CN", { sensitivity: "base" })
+                    : valB.localeCompare(valA, "zh-CN", { sensitivity: "base" });
+            });
+
+            if (isAdmin) {
+                fullData = [...filteredData];
+                debouncedSaveData(fullData);
+            }
+
+            calculateTotalPages();
+            currentPage = 1;
+            renderTable(getCurrentPageData());
+            renderPagination();
+        }
+
+        function exportToExcel() {
+            if (!isAdmin) return;
+            const ws = XLSX.utils.json_to_sheet(fullData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "携号转网合约数据");
+
+            const date = new Date();
+            const fileName = `携号转网合约查询表_${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showTip(DOM.exportTip);
+        }
+
+        function showTip(tipElem) {
+            tipElem.style.display = "block";
+            setTimeout(() => tipElem.style.display = "none", 2500);
+        }
     </script>
 </body>
 </html>
