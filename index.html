@@ -60,14 +60,14 @@
         <table id="dataTable">
             <thead>
                 <tr>
-                    <th onclick="sortTable(0)">序号</th>
-                    <th onclick="sortTable(1)">订购业务</th>
-                    <th onclick="sortTable(2)">套餐分类</th>
-                    <th onclick="sortTable(3)">影响携转</th>
-                    <th onclick="sortTable(4)">可立即取消</th>
-                    <th onclick="sortTable(5)">取消难度</th>
-                    <th onclick="sortTable(6)">取消流程</th>
-                    <th>操作</th>
+                    <<th onclick="sortTable(0)">序号</</th>
+                    <<th onclick="sortTable(1)">订购业务</</th>
+                    <<th onclick="sortTable(2)">套餐分类</</th>
+                    <<th onclick="sortTable(3)">影响携转</</th>
+                    <<th onclick="sortTable(4)">可立即取消</</th>
+                    <<th onclick="sortTable(5)">取消难度</</th>
+                    <<th onclick="sortTable(6)">取消流程</</th>
+                    <<th>操作</</th>
                 </tr>
             </thead>
             <tbody id="dataBody"></tbody>
@@ -104,7 +104,7 @@
             document.getElementById("nextBtn")
         ];
         let sortConfig = { col: 0, asc: true };
-        const OPERATE_PASSWORD = "6361301";  // 新增/删除共用密码
+        const OPERATE_PASSWORD = "6361301";  // 新增/删除/导出共用密码
 
         // 显示提示
         function showTip(tipElem) {
@@ -165,6 +165,22 @@
             loadData();
             currentPage = totalPages;
             renderPageData();
+        }
+
+        // 导出Excel（带密码验证）
+        function exportToExcel() {
+            // 验证密码
+            if (!verifyPassword()) {
+                showTip(errorTip);
+                return;
+            }
+
+            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            const ws = XLSX.utils.json_to_sheet(fullData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "合约取消数据");
+            XLSX.writeFile(wb, "合约取消查询表.xlsx");
+            showTip(exportTip);
         }
 
         // 加载数据（包含翻页初始化）
@@ -345,16 +361,6 @@
             totalPages = Math.ceil(currentDataList.length / PAGE_SIZE);
             currentPage = 1;
             renderPageData();
-        }
-
-        // 导出Excel（导出全部数据，不是当前页）
-        function exportToExcel() {
-            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY));
-            const ws = XLSX.utils.json_to_sheet(fullData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "合约取消数据");
-            XLSX.writeFile(wb, "合约取消查询表.xlsx");
-            showTip(exportTip);
         }
 
         // 排序（适配翻页）
