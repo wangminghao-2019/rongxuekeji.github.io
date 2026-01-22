@@ -18,7 +18,7 @@
         .btn-reset {background:#6c757d;}
         .btn-add {background:#28a745;}
         .btn-export {background:#ff7f0e;}
-        .table-container {background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05);overflow-x:auto;}
+        .table-container {background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05);overflow-x:auto;margin-bottom:20px;}
         table {width:100%;border-collapse:collapse;text-align:center;}
         th, td {padding:12px 8px;border:1px solid #e9ecef;min-width:120px;word-break:break-word;font-size:14px;}
         th {background:#f8f9fa;font-weight:bold;cursor:pointer;}
@@ -31,10 +31,19 @@
         .save-tip {color:#28a745;}
         .export-tip {color:#ff7f0e;}
         .error-tip {color:#dc3545;}
+        /* 翻页样式 */
+        .pagination {display:flex;justify-content:center;align-items:center;gap:8px;margin:15px 0;flex-wrap:wrap;}
+        .pagination-btn {padding:8px 15px;border:1px solid #ced4da;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;transition:all 0.3s;}
+        .pagination-btn:hover {background:#e9ecef;border-color:#adb5bd;}
+        .pagination-btn.active {background:#409eff;color:#fff;border-color:#409eff;}
+        .pagination-btn:disabled {cursor:not-allowed;opacity:0.6;background:#f8f9fa;}
+        .pagination-info {font-size:14px;color:#6c757d;margin:0 10px;}
+
         @media (max-width:768px) {
             th, td {min-width:90px;padding:8px 5px;font-size:12px;}
             .search-box button {flex:1 0 100%;padding:9px 15px;font-size:14px;}
             .search-box input {min-width:100%;}
+            .pagination-btn {padding:6px 12px;font-size:13px;}
         }
     </style>
 </head>
@@ -51,18 +60,24 @@
         <table id="dataTable">
             <thead>
                 <tr>
-                    <<th onclick="sortTable(0)">序号</</th>
-                    <<th onclick="sortTable(1)">订购业务</</th>
-                    <<th onclick="sortTable(2)">套餐分类</</th>
-                    <<th onclick="sortTable(3)">影响携转</</th>
-                    <<th onclick="sortTable(4)">可立即取消</</th>
-                    <<th onclick="sortTable(5)">取消难度</</th>
-                    <<th onclick="sortTable(6)">取消流程</</th>
-                    <<th>操作</</th>
+                    <th onclick="sortTable(0)">序号</th>
+                    <th onclick="sortTable(1)">订购业务</th>
+                    <th onclick="sortTable(2)">套餐分类</th>
+                    <th onclick="sortTable(3)">影响携转</th>
+                    <th onclick="sortTable(4)">可立即取消</th>
+                    <th onclick="sortTable(5)">取消难度</th>
+                    <th onclick="sortTable(6)">取消流程</th>
+                    <th>操作</th>
                 </tr>
             </thead>
             <tbody id="dataBody"></tbody>
         </table>
+    </div>
+    <!-- 翻页控件 -->
+    <div class="pagination" id="pagination">
+        <button class="pagination-btn" id="prevBtn" onclick="changePage(-1)" disabled>上一页</button>
+        <span class="pagination-info" id="pageInfo">第 1 页 / 共 1 页</span>
+        <button class="pagination-btn" id="nextBtn" onclick="changePage(1)" disabled>下一页</button>
     </div>
     <div class="tip save-tip" id="saveTip">数据已保存</div>
     <div class="tip export-tip" id="exportTip">Excel导出成功，正在下载</div>
@@ -70,13 +85,23 @@
 
     <script>
         const STORAGE_KEY = "contractCancelData";
-        const [saveTip, exportTip, errorTip, dataTable, dataBody, searchInput] = [
+        // 翻页配置
+        const PAGE_SIZE = 20; // 每页显示20条
+        let currentPage = 1;  // 当前页码
+        let totalPages = 1;   // 总页数
+        let currentDataList = []; // 当前筛选后的全部数据
+
+        const [saveTip, exportTip, errorTip, dataTable, dataBody, searchInput, pagination, pageInfo, prevBtn, nextBtn] = [
             document.getElementById("saveTip"),
             document.getElementById("exportTip"),
             document.getElementById("errorTip"),
             document.getElementById("dataTable"),
             document.getElementById("dataBody"),
-            document.getElementById("searchInput")
+            document.getElementById("searchInput"),
+            document.getElementById("pagination"),
+            document.getElementById("pageInfo"),
+            document.getElementById("prevBtn"),
+            document.getElementById("nextBtn")
         ];
         let sortConfig = { col: 0, asc: true };
         const DELETE_PASSWORD = "6361301";  // 删除密码
@@ -89,25 +114,36 @@
 
         // 删除（带密码验证）
         function delRow(rowIndex) {
+            // 转换为原始数据的索引（当前页的行号 -> 全局数据的索引）
+            const originalIndex = (currentPage - 1) * PAGE_SIZE + rowIndex;
             const password = prompt("请输入删除密码：");
+            
             if (password !== DELETE_PASSWORD) {
                 showTip(errorTip);
                 return;
             }
+            
             if (confirm("确定删除？删除后不可恢复！")) {
-                const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+                // 获取原始完整数据
+                const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
                     item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
                 ]);
-                dataList.splice(rowIndex, 1);
-                saveData(dataList);
-                renderTable(dataList);
+                // 删除对应数据
+                fullData.splice(originalIndex, 1);
+                saveData(fullData);
+                // 重新加载数据并保持当前页（如果当前页无数据则回退到上一页）
+                loadData();
+                if (currentPage > totalPages) {
+                    currentPage = totalPages;
+                    renderPageData();
+                }
             }
         }
 
-        // 加载数据（修复卡住问题，移除懒加载）
+        // 加载数据（包含翻页初始化）
         function loadData() {
             const savedData = localStorage.getItem(STORAGE_KEY);
-            let dataList = [];
+            let fullData = [];
             
             const defaultData = [
                 [1,"100GB咪咕业务定向流量包月（合约版）","定向流量包","是","否","中等","合约期内需联系10086人工客服协商解约，可能支付违约金；合约到期后可通过APP/短信取消"],
@@ -137,24 +173,41 @@
             ];
 
             if (savedData) {
-                dataList = JSON.parse(savedData).map(item => [
+                fullData = JSON.parse(savedData).map(item => [
                     item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
                 ]);
             } else {
                 saveData(defaultData);
-                dataList = defaultData;
+                fullData = defaultData;
             }
-            renderTable(dataList);
+            
+            // 初始化当前数据列表（未筛选）
+            currentDataList = fullData;
+            // 计算总页数
+            totalPages = Math.ceil(currentDataList.length / PAGE_SIZE);
+            // 重置当前页为第一页
+            currentPage = 1;
+            // 渲染当前页数据
+            renderPageData();
         }
 
-        // 渲染表格
-        function renderTable(dataList) {
+        // 渲染当前页数据
+        function renderPageData() {
+            // 计算当前页数据的起始和结束索引
+            const startIndex = (currentPage - 1) * PAGE_SIZE;
+            const endIndex = Math.min(startIndex + PAGE_SIZE, currentDataList.length);
+            // 获取当前页数据
+            const pageData = currentDataList.slice(startIndex, endIndex);
+            
+            // 渲染表格
             dataBody.innerHTML = "";
             let html = "";
-            dataList.forEach((item, index) => {
+            pageData.forEach((item, index) => {
+                // 显示的序号 = 全局索引 + 1
+                const showIndex = startIndex + index + 1;
                 html += `
                     <tr data-index="${index}">
-                        <td>${index + 1}</td>
+                        <td>${showIndex}</td>
                         <td contenteditable="true" data-key="1">${item[1]}</td>
                         <td contenteditable="true" data-key="2">${item[2]}</td>
                         <td contenteditable="true" data-key="3">${item[3]}</td>
@@ -167,6 +220,28 @@
             });
             dataBody.innerHTML = html;
             bindEditEvent();
+            
+            // 更新翻页控件状态
+            updatePagination();
+        }
+
+        // 更新翻页控件状态
+        function updatePagination() {
+            // 更新页码信息
+            pageInfo.textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
+            // 禁用/启用上一页按钮
+            prevBtn.disabled = currentPage <= 1;
+            // 禁用/启用下一页按钮
+            nextBtn.disabled = currentPage >= totalPages;
+        }
+
+        // 切换页码（prev=-1, next=1）
+        function changePage(direction) {
+            const newPage = currentPage + direction;
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                renderPageData();
+            }
         }
 
         // 保存数据
@@ -184,78 +259,103 @@
             showTip(saveTip);
         }
 
-        // 编辑事件
+        // 编辑事件（适配翻页）
         function bindEditEvent() {
             dataBody.addEventListener("blur", (e) => {
                 const cell = e.target;
                 if (cell.tagName !== "TD" || !cell.hasAttribute("contenteditable")) return;
+                
+                // 当前页的行索引
                 const rowIndex = parseInt(cell.parentElement.getAttribute("data-index"));
+                // 转换为全局数据索引
+                const originalIndex = (currentPage - 1) * PAGE_SIZE + rowIndex;
                 const dataKey = parseInt(cell.getAttribute("data-key"));
                 const newVal = cell.textContent.trim();
-                const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY));
-                dataList[rowIndex][Object.keys(dataList[0])[dataKey]] = newVal;
-                saveData(dataList.map(item => [
+                
+                // 获取完整数据
+                const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                fullData[originalIndex][Object.keys(fullData[0])[dataKey]] = newVal;
+                
+                // 保存并重新渲染
+                saveData(fullData.map(item => [
                     item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
                 ]));
-                renderTable(dataList.map(item => [
-                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-                ]));
+                loadData();
             }, true);
         }
 
-        // 查询
+        // 查询（适配翻页）
         function searchData() {
             const keywords = searchInput.value.trim().split(/\s+/).filter(k => k);
-            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+            // 获取完整数据
+            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
                 item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
             ]);
-            const filtered = dataList.filter(item => 
-                keywords.every(key => item.some(field => (field + "").includes(key)))
-            );
-            renderTable(filtered);
+            
+            // 筛选数据
+            if (keywords.length > 0) {
+                currentDataList = fullData.filter(item => 
+                    keywords.every(key => item.some(field => (field + "").toLowerCase().includes(key.toLowerCase())))
+                );
+            } else {
+                currentDataList = fullData;
+            }
+            
+            // 重置页码并渲染
+            totalPages = Math.ceil(currentDataList.length / PAGE_SIZE);
+            currentPage = 1;
+            renderPageData();
         }
 
         // 重置
         function resetData() {
             searchInput.value = "";
-            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+            // 恢复为完整数据
+            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
                 item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
             ]);
-            renderTable(dataList);
+            currentDataList = fullData;
+            totalPages = Math.ceil(currentDataList.length / PAGE_SIZE);
+            currentPage = 1;
+            renderPageData();
         }
 
         // 新增
         function addRow() {
-            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+            // 获取完整数据
+            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
                 item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
             ]);
-            dataList.push(["", "新业务", "新分类", "是/否", "是/否", "难度", "流程"]);
-            saveData(dataList);
-            renderTable(dataList);
+            // 新增行
+            fullData.push(["", "新业务", "新分类", "是/否", "是/否", "难度", "流程"]);
+            saveData(fullData);
+            // 重新加载数据并跳转到最后一页
+            loadData();
+            currentPage = totalPages;
+            renderPageData();
         }
 
-        // 导出Excel
+        // 导出Excel（导出全部数据，不是当前页）
         function exportToExcel() {
-            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY));
-            const ws = XLSX.utils.json_to_sheet(dataList);
+            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            const ws = XLSX.utils.json_to_sheet(fullData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "合约取消数据");
             XLSX.writeFile(wb, "合约取消查询表.xlsx");
             showTip(exportTip);
         }
 
-        // 排序
+        // 排序（适配翻页）
         function sortTable(colIndex) {
-            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
-                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-            ]);
-            dataList.sort((a, b) => {
+            // 对当前筛选后的全部数据排序
+            currentDataList.sort((a, b) => {
                 const valA = a[colIndex], valB = b[colIndex];
                 if (sortConfig.col === colIndex) sortConfig.asc = !sortConfig.asc;
                 else sortConfig = { col: colIndex, asc: true };
                 return sortConfig.asc ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
             });
-            renderTable(dataList);
+            // 保持当前页渲染
+            renderPageData();
         }
 
         // 页面加载时执行
