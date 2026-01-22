@@ -81,7 +81,7 @@
     </div>
     <div class="tip save-tip" id="saveTip">数据已保存</div>
     <div class="tip export-tip" id="exportTip">Excel导出成功，正在下载</div>
-    <div class="tip error-tip" id="errorTip">密码错误，无权删除</div>
+    <div class="tip error-tip" id="errorTip">密码错误，无权操作</div>
 
     <script>
         const STORAGE_KEY = "contractCancelData";
@@ -104,7 +104,7 @@
             document.getElementById("nextBtn")
         ];
         let sortConfig = { col: 0, asc: true };
-        const DELETE_PASSWORD = "6361301";  // 删除密码
+        const OPERATE_PASSWORD = "6361301";  // 新增/删除共用密码
 
         // 显示提示
         function showTip(tipElem) {
@@ -112,16 +112,22 @@
             setTimeout(() => tipElem.style.display = "none", 2000);
         }
 
+        // 密码验证通用函数
+        function verifyPassword() {
+            const password = prompt("请输入操作密码：");
+            return password === OPERATE_PASSWORD;
+        }
+
         // 删除（带密码验证）
         function delRow(rowIndex) {
-            // 转换为原始数据的索引（当前页的行号 -> 全局数据的索引）
-            const originalIndex = (currentPage - 1) * PAGE_SIZE + rowIndex;
-            const password = prompt("请输入删除密码：");
-            
-            if (password !== DELETE_PASSWORD) {
+            // 验证密码
+            if (!verifyPassword()) {
                 showTip(errorTip);
                 return;
             }
+
+            // 转换为原始数据的索引（当前页的行号 -> 全局数据的索引）
+            const originalIndex = (currentPage - 1) * PAGE_SIZE + rowIndex;
             
             if (confirm("确定删除？删除后不可恢复！")) {
                 // 获取原始完整数据
@@ -138,6 +144,27 @@
                     renderPageData();
                 }
             }
+        }
+
+        // 新增（带密码验证）
+        function addRow() {
+            // 验证密码
+            if (!verifyPassword()) {
+                showTip(errorTip);
+                return;
+            }
+
+            // 获取完整数据
+            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+            ]);
+            // 新增行
+            fullData.push(["", "新业务", "新分类", "是/否", "是/否", "难度", "流程"]);
+            saveData(fullData);
+            // 重新加载数据并跳转到最后一页
+            loadData();
+            currentPage = totalPages;
+            renderPageData();
         }
 
         // 加载数据（包含翻页初始化）
@@ -317,21 +344,6 @@
             currentDataList = fullData;
             totalPages = Math.ceil(currentDataList.length / PAGE_SIZE);
             currentPage = 1;
-            renderPageData();
-        }
-
-        // 新增
-        function addRow() {
-            // 获取完整数据
-            const fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
-                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-            ]);
-            // 新增行
-            fullData.push(["", "新业务", "新分类", "是/否", "是/否", "难度", "流程"]);
-            saveData(fullData);
-            // 重新加载数据并跳转到最后一页
-            loadData();
-            currentPage = totalPages;
             renderPageData();
         }
 
