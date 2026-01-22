@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>合约取消查询系统</title>
-    <!-- 优化：使用更小的Excel导出库CDN（体积减小50%） -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.core.min.js"></script>
     <style>
         * {margin:0;padding:0;box-sizing:border-box;font-family:"微软雅黑",sans-serif;}
@@ -31,8 +30,7 @@
         .tip {text-align:center;margin-top:8px;font-size:13px;display:none;}
         .save-tip {color:#28a745;}
         .export-tip {color:#ff7f0e;}
-        /* 优化：加载提示样式 */
-        .loading-tip {text-align:center;padding:20px;color:#6c757d;font-size:14px;}
+        .error-tip {color:#dc3545;}
         @media (max-width:768px) {
             th, td {min-width:90px;padding:8px 5px;font-size:12px;}
             .search-box button {flex:1 0 100%;padding:9px 15px;font-size:14px;}
@@ -50,19 +48,17 @@
         <button class="btn-export" onclick="exportToExcel()">导出Excel</button>
     </div>
     <div class="table-container">
-        <!-- 优化：添加加载提示（首屏先显示提示，再渲染数据） -->
-        <div class="loading-tip" id="loadingTip">数据加载中...</div>
-        <table id="dataTable" style="display:none;">
+        <table id="dataTable">
             <thead>
                 <tr>
-                    <th onclick="sortTable(0)">序号</th>
-                    <th onclick="sortTable(1)">订购业务</th>
-                    <th onclick="sortTable(2)">套餐分类</th>
-                    <th onclick="sortTable(3)">影响携转</th>
-                    <th onclick="sortTable(4)">可立即取消</th>
-                    <th onclick="sortTable(5)">取消难度</th>
-                    <th onclick="sortTable(6)">取消流程</th>
-                    <th>操作</th>
+                    <<th onclick="sortTable(0)">序号</</th>
+                    <<th onclick="sortTable(1)">订购业务</</th>
+                    <<th onclick="sortTable(2)">套餐分类</</th>
+                    <<th onclick="sortTable(3)">影响携转</</th>
+                    <<th onclick="sortTable(4)">可立即取消</</th>
+                    <<th onclick="sortTable(5)">取消难度</</th>
+                    <<th onclick="sortTable(6)">取消流程</</th>
+                    <<th>操作</</th>
                 </tr>
             </thead>
             <tbody id="dataBody"></tbody>
@@ -70,25 +66,49 @@
     </div>
     <div class="tip save-tip" id="saveTip">数据已保存</div>
     <div class="tip export-tip" id="exportTip">Excel导出成功，正在下载</div>
+    <div class="tip error-tip" id="errorTip">密码错误，无权删除</div>
 
     <script>
         const STORAGE_KEY = "contractCancelData";
-        const [saveTip, exportTip, loadingTip, dataTable, dataBody, searchInput] = [
+        const [saveTip, exportTip, errorTip, dataTable, dataBody, searchInput] = [
             document.getElementById("saveTip"),
             document.getElementById("exportTip"),
-            document.getElementById("loadingTip"),
+            document.getElementById("errorTip"),
             document.getElementById("dataTable"),
             document.getElementById("dataBody"),
             document.getElementById("searchInput")
         ];
         let sortConfig = { col: 0, asc: true };
+        const DELETE_PASSWORD = "6361301";  // 删除密码
 
-        // 优化：延迟渲染非首屏数据（首屏渲染前10条，剩余数据滚动时加载）
+        // 显示提示
+        function showTip(tipElem) {
+            tipElem.style.display = "block";
+            setTimeout(() => tipElem.style.display = "none", 2000);
+        }
+
+        // 删除（带密码验证）
+        function delRow(rowIndex) {
+            const password = prompt("请输入删除密码：");
+            if (password !== DELETE_PASSWORD) {
+                showTip(errorTip);
+                return;
+            }
+            if (confirm("确定删除？删除后不可恢复！")) {
+                const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+                ]);
+                dataList.splice(rowIndex, 1);
+                saveData(dataList);
+                renderTable(dataList);
+            }
+        }
+
+        // 加载数据（修复卡住问题，移除懒加载）
         function loadData() {
             const savedData = localStorage.getItem(STORAGE_KEY);
             let dataList = [];
             
-            // 优化：精简默认数据格式（移除冗余字段，体积减小40%）
             const defaultData = [
                 [1,"100GB咪咕业务定向流量包月（合约版）","定向流量包","是","否","中等","合约期内需联系10086人工客服协商解约，可能支付违约金；合约到期后可通过APP/短信取消"],
                 [2,"10GB区域流量包（巴南）-24个月","区域流量包","是","否","中等","24个月合约期内不可直接取消，需联系客服申请提前终止并承担违约金"],
@@ -116,7 +136,6 @@
                 [24,"主副卡共享套餐（副卡3元/月）","副卡业务","是","否","中等","需先注销副卡，再通过营业厅或10086客服取消主副卡共享业务"]
             ];
 
-            // 优化：数据格式转换（数组转对象，减少内存占用）
             if (savedData) {
                 dataList = JSON.parse(savedData).map(item => [
                     item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
@@ -125,26 +144,10 @@
                 saveData(defaultData);
                 dataList = defaultData;
             }
-
-            // 优化：首屏渲染前10条数据，提升打开速度
-            renderTable(dataList.slice(0, 10));
-            loadingTip.style.display = "none";
-            dataTable.style.display = "table";
-
-            // 优化：剩余数据滚动时加载（用户滚动到表格底部再渲染）
-            let isLoadedAll = false;
-            window.addEventListener("scroll", () => {
-                if (isLoadedAll) return;
-                const tableBottom = dataTable.offsetTop + dataTable.offsetHeight;
-                const scrollTop = window.scrollY + window.innerHeight;
-                if (scrollTop >= tableBottom - 200) { // 距离底部200px时加载剩余数据
-                    renderTable(dataList);
-                    isLoadedAll = true;
-                }
-            });
+            renderTable(dataList);
         }
 
-        // 优化：精简渲染逻辑，减少DOM操作次数
+        // 渲染表格
         function renderTable(dataList) {
             dataBody.innerHTML = "";
             let html = "";
@@ -166,7 +169,7 @@
             bindEditEvent();
         }
 
-        // 优化：精简保存逻辑，减少JSON转换耗时
+        // 保存数据
         function saveData(dataList) {
             const formattedData = dataList.map((item, index) => ({
                 id: index + 1,
@@ -181,6 +184,7 @@
             showTip(saveTip);
         }
 
+        // 编辑事件
         function bindEditEvent() {
             dataBody.addEventListener("blur", (e) => {
                 const cell = e.target;
@@ -199,52 +203,19 @@
             }, true);
         }
 
-        // 优化：合并提示显示逻辑，减少代码冗余
-        function showTip(tipElem) {
-            tipElem.style.display = "block";
-            setTimeout(() => tipElem.style.display = "none", 2000);
-        }
-
+        // 查询
         function searchData() {
             const keywords = searchInput.value.trim().split(/\s+/).filter(k => k);
             const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
                 item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
             ]);
-            const rows = dataBody.querySelectorAll("tr");
-
-            rows.forEach((row, index) => {
-                const item = dataList[index];
-                let allMatch = true;
-                const cells = row.querySelectorAll("td");
-                cells.forEach(cell => {
-                    cell.classList.remove("highlight");
-                    cell.innerHTML = cell.textContent;
-                });
-
-                if (keywords.length === 0) {
-                    row.style.display = "";
-                    return;
-                }
-
-                keywords.forEach(keyword => {
-                    const reg = new RegExp(keyword, "gi");
-                    const match = item.some(field => reg.test(field + ""));
-                    if (!match) allMatch = false;
-                });
-
-                if (allMatch) {
-                    row.style.display = "";
-                    cells.forEach(cell => {
-                        const text = cell.textContent;
-                        keywords.forEach(keyword => {
-                            const reg = new RegExp(keyword, "gi");
-                            if (reg.test(text)) cell.innerHTML = text.replace(reg, '<span class="highlight">$&</span>');
-                        });
-                    });
-                } else row.style.display = "none";
-            });
+            const filtered = dataList.filter(item => 
+                keywords.every(key => item.some(field => (field + "").includes(key)))
+            );
+            renderTable(filtered);
         }
 
+        // 重置
         function resetData() {
             searchInput.value = "";
             const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
@@ -253,71 +224,42 @@
             renderTable(dataList);
         }
 
+        // 新增
         function addRow() {
             const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
                 item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
             ]);
-            dataList.push([
-                dataList.length + 1, "请输入业务名称", "请输入分类", "是/否", "是/否", "低/中/高", "请输入流程"
-            ]);
-            saveData(dataList);
-            renderTable(dataList);
-            dataBody.lastChild.querySelector("td[data-key='1']").focus();
-        }
-
-        function delRow(rowIndex) {
-            if (confirm("确定删除？删除后不可恢复！")) {
-                const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
-                    item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-                ]);
-                dataList.splice(rowIndex, 1);
-                saveData(dataList);
-                renderTable(dataList);
-            }
-        }
-
-        function sortTable(col) {
-            sortConfig.asc = sortConfig.col === col ? !sortConfig.asc : true;
-            sortConfig.col = col;
-            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
-                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
-            ]);
-
-            dataList.sort((a, b) => {
-                const valA = col === 0 ? a[col] : (a[col] + "").toLowerCase();
-                const valB = col === 0 ? b[col] : (b[col] + "").toLowerCase();
-                return sortConfig.asc 
-                    ? (col === 0 ? valA - valB : valA.localeCompare(valB, "zh-CN")) 
-                    : (col === 0 ? valB - valA : valB.localeCompare(valA, "zh-CN"));
-            });
-
+            dataList.push(["", "新业务", "新分类", "是/否", "是/否", "难度", "流程"]);
             saveData(dataList);
             renderTable(dataList);
         }
 
+        // 导出Excel
         function exportToExcel() {
             const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY));
-            const excelData = dataList.map(item => ({
-                "序号": item.id, "订购业务": item.service, "套餐分类": item.type,
-                "影响携转": item.affect, "可立即取消": item.cancelNow,
-                "取消难度": item.difficulty, "取消流程": item.process
-            }));
+            const ws = XLSX.utils.json_to_sheet(dataList);
             const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.json_to_sheet(excelData);
-            XLSX.utils.book_append_sheet(wb, ws, "合约数据");
-            const date = new Date();
-            const fileName = `合约查询表_${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}.xlsx`;
-            XLSX.writeFile(wb, fileName);
+            XLSX.utils.book_append_sheet(wb, ws, "合约取消数据");
+            XLSX.writeFile(wb, "合约取消查询表.xlsx");
             showTip(exportTip);
         }
 
-        // 优化：页面加载完成后立即执行，减少延迟
-        document.addEventListener("DOMContentLoaded", () => {
-            loadData();
-            searchInput.addEventListener("keydown", e => e.key === "Enter" && searchData());
-        });
+        // 排序
+        function sortTable(colIndex) {
+            const dataList = JSON.parse(localStorage.getItem(STORAGE_KEY)).map(item => [
+                item.id, item.service, item.type, item.affect, item.cancelNow, item.difficulty, item.process
+            ]);
+            dataList.sort((a, b) => {
+                const valA = a[colIndex], valB = b[colIndex];
+                if (sortConfig.col === colIndex) sortConfig.asc = !sortConfig.asc;
+                else sortConfig = { col: colIndex, asc: true };
+                return sortConfig.asc ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
+            });
+            renderTable(dataList);
+        }
+
+        // 页面加载时执行
+        window.onload = loadData;
     </script>
 </body>
-
 </html>
-
