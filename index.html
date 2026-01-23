@@ -6,6 +6,7 @@
     <title>携号转网合约查询系统</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.core.min.js"></script>
     <style>
+        /* 原有样式保持不变 */
         * {
             margin: 0;
             padding: 0;
@@ -102,6 +103,10 @@
             background: #f39c12;
             display: none; /* 默认隐藏 */
         }
+        .btn-import {
+            background: #9b59b6;
+            display: none; /* 默认隐藏 */
+        }
         .table-container {
             background: #fff;
             border-radius: 12px;
@@ -123,14 +128,15 @@
             font-size: 14px;
             overflow: hidden;
         }
-        /* 精准设置各列宽度（满足需求：序号/套餐分类等变窄，订购业务/取消流程变宽） */
+        /* 精准设置各列宽度（新增删除列宽度） */
         .col-id { width: 60px; } /* 序号 - 最窄 */
-        .col-service { width: 300px; } /* 订购业务 - 最宽 */
+        .col-service { width: 280px; } /* 订购业务 - 调整宽度适配删除列 */
         .col-type { width: 100px; } /* 套餐分类 - 窄 */
         .col-affect { width: 80px; } /* 影响携转 - 窄 */
         .col-cancelNow { width: 80px; } /* 可立即取消 - 窄 */
         .col-difficulty { width: 80px; } /* 取消难度 - 窄 */
-        .col-process { width: 400px; } /* 取消流程 - 最宽 */
+        .col-process { width: 380px; } /* 取消流程 - 调整宽度 */
+        .col-delete { width: 80px; } /* 新增删除列宽度 */
 
         th {
             background: #f8fafc;
@@ -171,6 +177,12 @@
         }
         .export-tip {
             color: #f39c12;
+        }
+        .import-tip {
+            color: #9b59b6;
+        }
+        .delete-tip {
+            color: #e74c3c;
         }
         .login-tip {
             color: #3498db;
@@ -290,15 +302,34 @@
             margin-bottom: 10px;
             display: none;
         }
+        /* 导入文件隐藏控件 */
+        #importFile {
+            display: none;
+        }
+        /* 新增删除按钮样式 */
+        .btn-delete {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-delete:hover {
+            background: #c0392b;
+        }
         @media (max-width: 768px) {
-            /* 移动端适配列宽，保证不拥挤 */
+            /* 移动端适配列宽 */
             .col-id { width: 40px; }
-            .col-service { width: 150px; }
+            .col-service { width: 140px; }
             .col-type { width: 70px; }
             .col-affect { width: 60px; }
             .col-cancelNow { width: 60px; }
             .col-difficulty { width: 60px; }
-            .col-process { width: 200px; }
+            .col-process { width: 180px; }
+            .col-delete { width: 60px; }
 
             th, td {
                 padding: 10px 6px;
@@ -328,6 +359,10 @@
                 text-align: center;
                 margin-bottom: 8px;
             }
+            .btn-delete {
+                padding: 4px 8px;
+                font-size: 11px;
+            }
         }
     </style>
 </head>
@@ -348,21 +383,24 @@
         <button class="btn-reset" onclick="resetData()">重置</button>
         <button class="btn-add" id="btnAdd" onclick="addRow()">新增数据</button>
         <button class="btn-export" id="btnExport" onclick="exportToExcel()">导出Excel</button>
+        <button class="btn-import" id="btnImport" onclick="document.getElementById('importFile').click()">导入Excel</button>
+        <input type="file" id="importFile" accept=".xlsx,.xls" onchange="importFromExcel(this.files)">
     </div>
 
-    <!-- 表格区域（修正多余符号，添加列宽类） -->
+    <!-- 表格区域（修正表头标签的多余<符号） -->
     <div class="table-container">
         <div class="loading-tip" id="loadingTip">数据加载中...</div>
         <table id="dataTable" style="display:none;">
             <thead>
                 <tr>
-                    <th class="col-id" onclick="sortTable(0)">序号</th>
-                    <th class="col-service" onclick="sortTable(1)">订购业务</th>
-                    <th class="col-type" onclick="sortTable(2)">套餐分类</th>
-                    <th class="col-affect" onclick="sortTable(3)">影响携转</th>
-                    <th class="col-cancelNow" onclick="sortTable(4)">可立即取消</th>
-                    <th class="col-difficulty" onclick="sortTable(5)">取消难度</th>
-                    <th class="col-process" onclick="sortTable(6)">取消流程</th>
+                    <<th class="col-id" onclick="sortTable(0)">序号</</th>
+                    <<th class="col-service" onclick="sortTable(1)">订购业务</</th>
+                    <<th class="col-type" onclick="sortTable(2)">套餐分类</</th>
+                    <<th class="col-affect" onclick="sortTable(3)">影响携转</</th>
+                    <<th class="col-cancelNow" onclick="sortTable(4)">可立即取消</</th>
+                    <<th class="col-difficulty" onclick="sortTable(5)">取消难度</</th>
+                    <<th class="col-process" onclick="sortTable(6)">取消流程</</th>
+                    <<th class="col-delete">操作（管理员）</</th>
                 </tr>
             </thead>
             <tbody id="dataBody"></tbody>
@@ -380,6 +418,8 @@
     <!-- 提示信息 -->
     <div class="tip save-tip" id="saveTip">数据已保存成功！</div>
     <div class="tip export-tip" id="exportTip">Excel导出成功，正在下载...</div>
+    <div class="tip import-tip" id="importTip">Excel导入成功，共追加 <span id="importCount">0</span> 条数据！</div>
+    <div class="tip delete-tip" id="deleteTip">数据删除成功！</div>
     <div class="tip login-tip" id="loginTip">管理员登录成功！已解锁全部操作权限</div>
 
     <!-- 管理员登录弹窗 -->
@@ -424,10 +464,14 @@
                 loadingTip: el("loadingTip"),
                 saveTip: el("saveTip"),
                 exportTip: el("exportTip"),
+                importTip: el("importTip"),
+                deleteTip: el("deleteTip"),
+                importCount: el("importCount"),
                 loginTip: el("loginTip"),
                 authStatus: el("authStatus"),
                 btnAdd: el("btnAdd"),
                 btnExport: el("btnExport"),
+                btnImport: el("btnImport"),
                 loginModal: el("loginModal"),
                 loginError: el("loginError"),
                 adminUser: el("adminUser"),
@@ -436,7 +480,8 @@
                 prevPage: el("prevPage"),
                 nextPage: el("nextPage"),
                 pageInfo: el("pageInfo"),
-                pageNumList: el("pageNumList")
+                pageNumList: el("pageNumList"),
+                importFile: el("importFile")
             };
         })();
 
@@ -488,6 +533,7 @@
             if (isAdmin) {
                 DOM.btnAdd.style.display = "block";
                 DOM.btnExport.style.display = "block";
+                DOM.btnImport.style.display = "block";
                 DOM.authStatus.innerHTML = `
                     当前身份：管理员（全部权限）
                     <button onclick="logoutAdmin()">退出登录</button>
@@ -495,6 +541,7 @@
             } else {
                 DOM.btnAdd.style.display = "none";
                 DOM.btnExport.style.display = "none";
+                DOM.btnImport.style.display = "none";
                 DOM.authStatus.innerHTML = `
                     当前身份：普通用户（仅查看/搜索）
                     <button onclick="showLoginModal()">管理员登录</button>
@@ -603,12 +650,13 @@
             return filteredData.slice(startIndex, endIndex);
         }
 
-        // 渲染表格：保留批量插入优化，继承列宽类
+        // 渲染表格
         function renderTable(dataList) {
             const fragment = document.createDocumentFragment();
             dataList.forEach((item, index) => {
                 const tr = document.createElement("tr");
-                tr.setAttribute("data-index", (currentPage - 1) * CONFIG.PAGE_SIZE + index);
+                const originalIndex = (currentPage - 1) * CONFIG.PAGE_SIZE + index; // 原始数据索引
+                tr.setAttribute("data-index", originalIndex);
                 
                 const createTd = (content, isEditable = false, dataKey = "", colClass = "") => {
                     const td = document.createElement("td");
@@ -621,6 +669,7 @@
                     return td;
                 };
 
+                // 原有列
                 tr.appendChild(createTd(item.id, false, "", "col-id"));
                 tr.appendChild(createTd(item.service, true, "service", "col-service"));
                 tr.appendChild(createTd(item.type, true, "type", "col-type"));
@@ -628,6 +677,23 @@
                 tr.appendChild(createTd(item.cancelNow, true, "cancelNow", "col-cancelNow"));
                 tr.appendChild(createTd(item.difficulty, true, "difficulty", "col-difficulty"));
                 tr.appendChild(createTd(item.process, true, "process", "col-process"));
+                
+                // 删除列：仅管理员可见
+                const deleteTd = document.createElement("td");
+                deleteTd.classList.add("col-delete");
+                if (isAdmin) {
+                    const deleteBtn = document.createElement("button");
+                    deleteBtn.className = "btn-delete";
+                    deleteBtn.textContent = "删除";
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation(); // 阻止触发单元格编辑
+                        deleteRow(originalIndex); // 传入原始数据索引
+                    };
+                    deleteTd.appendChild(deleteBtn);
+                } else {
+                    deleteTd.textContent = "-";
+                }
+                tr.appendChild(deleteTd);
 
                 fragment.appendChild(tr);
             });
@@ -641,10 +707,51 @@
             }
         }
 
+        // 删除数据核心函数
+        function deleteRow(originalIndex) {
+            if (!isAdmin) return;
+            
+            // 确认删除（避免误操作）
+            if (!confirm("确定要删除这条数据吗？删除后不可恢复！")) {
+                return;
+            }
+            
+            // 1. 从原始数据中删除
+            fullData.splice(originalIndex, 1);
+            
+            // 2. 重新排序序号（确保连续）
+            fullData.forEach((item, index) => {
+                item.id = index + 1;
+            });
+            
+            // 3. 更新过滤后的数据（同步删除）
+            filteredData = [...fullData];
+            
+            // 4. 保存数据到本地存储
+            saveData(fullData);
+            
+            // 5. 重新计算分页并刷新表格
+            const currentDataCount = filteredData.length;
+            calculateTotalPages();
+            
+            // 若当前页是最后一页且无数据，跳转到上一页
+            if (currentPage > totalPages && totalPages > 0) {
+                currentPage = totalPages;
+            } else if (currentDataCount === 0) {
+                currentPage = 1;
+            }
+            
+            renderTable(getCurrentPageData());
+            renderPagination();
+            
+            // 显示删除成功提示
+            showTip(DOM.deleteTip);
+        }
+
         function highlightKeywords(keywords) {
             const rows = DOM.dataBody.querySelectorAll("tr");
             rows.forEach(row => {
-                const tds = row.querySelectorAll("td:not(.col-id)");
+                const tds = row.querySelectorAll("td:not(.col-id):not(.col-delete)");
                 tds.forEach(td => {
                     let text = td.textContent;
                     keywords.forEach(keyword => {
@@ -829,6 +936,60 @@
             const fileName = `携号转网合约查询表_${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}.xlsx`;
             XLSX.writeFile(wb, fileName);
             showTip(DOM.exportTip);
+        }
+
+        // 导入Excel数据（追加模式）
+        function importFromExcel(files) {
+            if (!isAdmin || !files.length) return;
+            
+            const file = files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: "array" });
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
+                    const excelData = XLSX.utils.sheet_to_json(ws, {
+                        header: ["id", "service", "type", "affect", "cancelNow", "difficulty", "process"]
+                    });
+                    const validData = excelData.slice(1).filter(item => 
+                        item.service && item.type && (item.affect === "是" || item.affect === "否")
+                    );
+                    
+                    const newData = validData.map(item => ({
+                        id: fullData.length + 1,
+                        service: item.service || "",
+                        type: item.type || "",
+                        affect: item.affect || "是/否",
+                        cancelNow: item.cancelNow || "是/否",
+                        difficulty: item.difficulty || "低/中/高",
+                        process: item.process || ""
+                    }));
+                    
+                    fullData = [...fullData, ...newData];
+                    fullData.forEach((item, index) => {
+                        item.id = index + 1;
+                    });
+                    
+                    filteredData = [...fullData];
+                    saveData(fullData);
+                    calculateTotalPages();
+                    currentPage = totalPages;
+                    renderTable(getCurrentPageData());
+                    renderPagination();
+                    
+                    DOM.importCount.textContent = newData.length;
+                    showTip(DOM.importTip);
+                } catch (err) {
+                    alert("导入失败！请确保Excel格式正确（字段匹配：序号、订购业务、套餐分类、影响携转、可立即取消、取消难度、取消流程）");
+                    console.error("导入错误：", err);
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+            DOM.importFile.value = "";
         }
 
         function showTip(tipElem) {
