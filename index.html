@@ -6,7 +6,7 @@
     <title>携号转网合约查询系统</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.core.min.js"></script>
     <style>
-        /* 原有样式保持不变 */
+        /* 原有样式保持不变，新增保存按钮样式 */
         * {
             margin: 0;
             padding: 0;
@@ -99,6 +99,10 @@
             background: #2ecc71;
             display: none; /* 默认隐藏 */
         }
+        .btn-save {
+            background: #1abc9c;
+            display: none; /* 默认隐藏 */
+        }
         .btn-export {
             background: #f39c12;
             display: none; /* 默认隐藏 */
@@ -128,15 +132,15 @@
             font-size: 14px;
             overflow: hidden;
         }
-        /* 精准设置各列宽度（新增删除列宽度） */
+        /* 精准设置各列宽度 */
         .col-id { width: 60px; } /* 序号 - 最窄 */
-        .col-service { width: 280px; } /* 订购业务 - 调整宽度适配删除列 */
+        .col-service { width: 280px; } /* 订购业务 */
         .col-type { width: 100px; } /* 套餐分类 - 窄 */
         .col-affect { width: 80px; } /* 影响携转 - 窄 */
         .col-cancelNow { width: 80px; } /* 可立即取消 - 窄 */
         .col-difficulty { width: 80px; } /* 取消难度 - 窄 */
-        .col-process { width: 380px; } /* 取消流程 - 调整宽度 */
-        .col-delete { width: 80px; } /* 新增删除列宽度 */
+        .col-process { width: 380px; } /* 取消流程 */
+        .col-delete { width: 80px; } /* 删除列宽度 */
 
         th {
             background: #f8fafc;
@@ -174,6 +178,10 @@
         }
         .save-tip {
             color: #2ecc71;
+        }
+        .manual-save-tip {
+            color: #1abc9c;
+            font-weight: 600;
         }
         .export-tip {
             color: #f39c12;
@@ -306,7 +314,7 @@
         #importFile {
             display: none;
         }
-        /* 新增删除按钮样式 */
+        /* 删除按钮样式 */
         .btn-delete {
             padding: 6px 10px;
             border: none;
@@ -376,18 +384,19 @@
         </div>
     </div>
 
-    <!-- 搜索区域 -->
+    <!-- 搜索区域（新增“保存数据”按钮） -->
     <div class="search-box">
         <input type="text" id="searchInput" placeholder="多关键词查询（空格分隔，如：5G 合约 是）">
         <button class="btn-search" onclick="searchData()">查询</button>
         <button class="btn-reset" onclick="resetData()">重置</button>
         <button class="btn-add" id="btnAdd" onclick="addRow()">新增数据</button>
+        <button class="btn-save" id="btnSave" onclick="manualSaveData()">保存数据</button>
         <button class="btn-export" id="btnExport" onclick="exportToExcel()">导出Excel</button>
         <button class="btn-import" id="btnImport" onclick="document.getElementById('importFile').click()">导入Excel</button>
         <input type="file" id="importFile" accept=".xlsx,.xls" onchange="importFromExcel(this.files)">
     </div>
 
-    <!-- 表格区域（修正表头标签的多余<符号） -->
+    <!-- 表格区域（修正后表头） -->
     <div class="table-container">
         <div class="loading-tip" id="loadingTip">数据加载中...</div>
         <table id="dataTable" style="display:none;">
@@ -415,8 +424,9 @@
         <button id="nextPage" onclick="changePage(currentPage + 1)" disabled>下一页</button>
     </div>
 
-    <!-- 提示信息 -->
-    <div class="tip save-tip" id="saveTip">数据已保存成功！</div>
+    <!-- 提示信息（新增手动保存成功提示） -->
+    <div class="tip save-tip" id="saveTip">数据已自动保存成功！</div>
+    <div class="tip manual-save-tip" id="manualSaveTip">全部数据手动保存成功！</div>
     <div class="tip export-tip" id="exportTip">Excel导出成功，正在下载...</div>
     <div class="tip import-tip" id="importTip">Excel导入成功，共追加 <span id="importCount">0</span> 条数据！</div>
     <div class="tip delete-tip" id="deleteTip">数据删除成功！</div>
@@ -454,7 +464,7 @@
         let debouncedSaveData = null;
         let throttledScrollLoad = null;
 
-        // DOM元素缓存
+        // DOM元素缓存（新增保存按钮和手动保存提示）
         const DOM = (() => {
             const el = id => document.getElementById(id);
             return {
@@ -463,6 +473,7 @@
                 dataBody: el("dataBody"),
                 loadingTip: el("loadingTip"),
                 saveTip: el("saveTip"),
+                manualSaveTip: el("manualSaveTip"),
                 exportTip: el("exportTip"),
                 importTip: el("importTip"),
                 deleteTip: el("deleteTip"),
@@ -470,6 +481,7 @@
                 loginTip: el("loginTip"),
                 authStatus: el("authStatus"),
                 btnAdd: el("btnAdd"),
+                btnSave: el("btnSave"),
                 btnExport: el("btnExport"),
                 btnImport: el("btnImport"),
                 loginModal: el("loginModal"),
@@ -520,7 +532,7 @@
             DOM.dataBody.addEventListener("blur", handleCellBlur, true);
         });
 
-        /** 权限控制 **/
+        /** 权限控制（新增保存按钮显示/隐藏） */
         function checkLoginStatus() {
             const loginStatus = localStorage.getItem(CONFIG.LOGIN_STATUS_KEY);
             if (loginStatus === "true") {
@@ -532,6 +544,7 @@
         function updateAdminPermission() {
             if (isAdmin) {
                 DOM.btnAdd.style.display = "block";
+                DOM.btnSave.style.display = "block"; // 显示手动保存按钮
                 DOM.btnExport.style.display = "block";
                 DOM.btnImport.style.display = "block";
                 DOM.authStatus.innerHTML = `
@@ -540,6 +553,7 @@
                 `;
             } else {
                 DOM.btnAdd.style.display = "none";
+                DOM.btnSave.style.display = "none"; // 隐藏手动保存按钮
                 DOM.btnExport.style.display = "none";
                 DOM.btnImport.style.display = "none";
                 DOM.authStatus.innerHTML = `
@@ -748,6 +762,20 @@
             showTip(DOM.deleteTip);
         }
 
+        // 新增：管理员手动保存核心函数
+        function manualSaveData() {
+            if (!isAdmin) return;
+            
+            // 保存全部数据到本地存储
+            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(fullData));
+            
+            // 显示手动保存成功提示（与自动保存区分）
+            showTip(DOM.manualSaveTip);
+            
+            // 可选：刷新表格确认数据同步
+            renderTable(getCurrentPageData());
+        }
+
         function highlightKeywords(keywords) {
             const rows = DOM.dataBody.querySelectorAll("tr");
             rows.forEach(row => {
@@ -806,6 +834,7 @@
             DOM.dataTable.scrollIntoView({ behavior: "auto", block: "top" });
         }
 
+        // 自动保存函数（原有逻辑保留）
         function saveData(dataList) {
             if (!isAdmin) return;
             localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(dataList));
@@ -841,7 +870,7 @@
             if (fullData[rowIndex][dataKey] !== newVal) {
                 fullData[rowIndex][dataKey] = newVal;
                 filteredData[rowIndex][dataKey] = newVal;
-                debouncedSaveData(fullData);
+                debouncedSaveData(fullData); // 编辑后自动防抖保存
             }
         }
 
@@ -885,7 +914,7 @@
 
             fullData.push(newRow);
             filteredData.push(newRow);
-            debouncedSaveData(fullData);
+            debouncedSaveData(fullData); // 新增后自动保存
             calculateTotalPages();
             currentPage = totalPages;
             renderTable(getCurrentPageData());
@@ -917,7 +946,7 @@
 
             if (isAdmin) {
                 fullData = [...filteredData];
-                debouncedSaveData(fullData);
+                debouncedSaveData(fullData); // 排序后自动保存
             }
 
             calculateTotalPages();
@@ -974,7 +1003,7 @@
                     });
                     
                     filteredData = [...fullData];
-                    saveData(fullData);
+                    saveData(fullData); // 导入后自动保存
                     calculateTotalPages();
                     currentPage = totalPages;
                     renderTable(getCurrentPageData());
